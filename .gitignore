@@ -1,5 +1,4 @@
-data/raw/
-data/db/
+data/
 __pycache__/
 *.pyc
 .DS_Store
