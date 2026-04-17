@@ -1,0 +1,102 @@
+-- =============================================================================
+-- 06_mart_margin.sql
+-- Маржинальность по форматам и издателям для дашборда Tableau
+--
+-- Содержит два среза:
+--   1. mart_margin_by_format    — маржа по формату × месяц
+--   2. mart_margin_by_publisher — рейтинг издателей по суммарной марже
+--
+-- Используется: Tableau (страница «Ассортимент и маржинальность»)
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- Маржа по формату и месяцу
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS mart_margin_by_format;
+
+CREATE TABLE mart_margin_by_format AS
+
+SELECT
+    d.year,
+    d.month,
+    d.quarter,
+    DATE_TRUNC('month', s.date)::DATE   AS month_start,
+    p.format,
+
+    SUM(s.sales_qty    - s.return_qty)                      AS net_qty,
+    SUM(s.sales_amount - s.return_amount)                   AS net_revenue,
+    SUM((s.sales_qty   - s.return_qty) * p.cost_rub)        AS total_cost,
+    SUM(s.sales_amount - s.return_amount
+        - (s.sales_qty - s.return_qty) * p.cost_rub)        AS gross_profit,
+
+    CASE
+        WHEN SUM(s.sales_amount - s.return_amount) > 0
+        THEN ROUND(
+            SUM(s.sales_amount - s.return_amount
+                - (s.sales_qty - s.return_qty) * p.cost_rub)
+            / SUM(s.sales_amount - s.return_amount), 4
+        )
+        ELSE 0
+    END                                                      AS gross_margin,
+
+    COUNT(DISTINCT p.product_id)                             AS unique_products
+
+FROM fact_sales s
+JOIN dim_product p ON p.product_id = s.product_id
+JOIN dim_date    d ON d.date        = s.date
+GROUP BY d.year, d.month, d.quarter, DATE_TRUNC('month', s.date), p.format;
+
+CREATE INDEX IF NOT EXISTS idx_mart_margin_format_month
+    ON mart_margin_by_format(year, month, format);
+
+-- -----------------------------------------------------------------------------
+-- Рейтинг издателей по марже (за весь период)
+-- -----------------------------------------------------------------------------
+DROP TABLE IF EXISTS mart_margin_by_publisher;
+
+CREATE TABLE mart_margin_by_publisher AS
+
+WITH publisher_stats AS (
+    SELECT
+        p.publisher,
+        p.format,
+        COUNT(DISTINCT p.product_id)                            AS product_count,
+        SUM(s.sales_qty    - s.return_qty)                      AS net_qty,
+        SUM(s.sales_amount - s.return_amount)                   AS net_revenue,
+        SUM((s.sales_qty   - s.return_qty) * p.cost_rub)        AS total_cost,
+        SUM(s.sales_amount - s.return_amount
+            - (s.sales_qty - s.return_qty) * p.cost_rub)        AS gross_profit,
+        AVG(p.avg_rating)                                        AS avg_product_rating
+    FROM fact_sales s
+    JOIN dim_product p ON p.product_id = s.product_id
+    WHERE p.publisher IS NOT NULL
+      AND p.format NOT IN ('Subscription')
+    GROUP BY p.publisher, p.format
+)
+
+SELECT
+    publisher,
+    format,
+    product_count,
+    net_qty,
+    net_revenue,
+    total_cost,
+    gross_profit,
+    CASE
+        WHEN net_revenue > 0
+        THEN ROUND(gross_profit / net_revenue, 4)
+        ELSE 0
+    END                                         AS gross_margin,
+    ROUND(avg_product_rating::NUMERIC, 2)       AS avg_product_rating,
+    RANK() OVER (
+        PARTITION BY format
+        ORDER BY gross_profit DESC
+    )                                           AS rank_by_format,
+    RANK() OVER (
+        ORDER BY gross_profit DESC
+    )                                           AS rank_overall
+FROM publisher_stats
+ORDER BY gross_profit DESC;
+
+CREATE INDEX IF NOT EXISTS idx_mart_margin_publisher
+    ON mart_margin_by_publisher(publisher);
