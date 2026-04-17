@@ -3,7 +3,14 @@
 (аналог ЛитРес) для план-фактного анализа.
 
 Период:      2024-01-01 – 2026-04-15
-Выходные CSV: dim_date, dim_product, fact_sales, fact_plan, fact_inventory
+Выходные CSV:
+    справочники: dim_date, dim_product,
+    планы: fact_plan,
+    факты:
+        fact_sales_history,       # 01.01.2024 — 14.04.2026
+        fact_sales_update,        # 15.04.2026
+        fact_inventory_history,   # 01.01.2024 — 14.04.2026
+        fact_inventory_update.    # 15.04.2026
 Папка вывода: data/raw/
 
 Запуск:
@@ -787,45 +794,32 @@ def apply_fact_inventory_anomalies(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 def split_and_save_fact(df: pd.DataFrame, base_name: str, date_col: str = 'date'):
-    """Разбивает фактовую таблицу по периодам и сохраняет."""
+    """Разбивает фактовую таблицу на history и update по дате 15.04.2026."""
     df = df.copy()
     df[date_col] = pd.to_datetime(df[date_col])
     
-    # 2024
-    mask_2024 = (df[date_col].dt.year == 2024)
-    if mask_2024.any():
-        path = os.path.join(OUTPUT_DIR, f'{base_name}_2024.csv')
-        df.loc[mask_2024].to_csv(path, index=False, encoding='utf-8')
-        print(f'  ✓ {base_name}_2024.csv — {mask_2024.sum():,} строк')
+    # Граничная дата: все, что до 15.04.2026 (не включая) - в history
+    # 15.04.2026 и позже - в update
+    cutoff_date = pd.Timestamp('2026-04-15')
     
-    # 2025
-    mask_2025 = (df[date_col].dt.year == 2025)
-    if mask_2025.any():
-        path = os.path.join(OUTPUT_DIR, f'{base_name}_2025.csv')
-        df.loc[mask_2025].to_csv(path, index=False, encoding='utf-8')
-        print(f'  ✓ {base_name}_2025.csv — {mask_2025.sum():,} строк')
+    # History: с 01.01.2024 до 14.04.2026 включительно
+    mask_history = df[date_col] < cutoff_date
+    if mask_history.any():
+        path = os.path.join(OUTPUT_DIR, f'{base_name}_history.csv')
+        df.loc[mask_history].to_csv(path, index=False, encoding='utf-8')
+        print(f'  ✓ {base_name}_history.csv — {mask_history.sum():,} строк')
     
-    # Q1 2026
-    mask_q1 = (df[date_col].dt.year == 2026) & (df[date_col].dt.month <= 3)
-    if mask_q1.any():
-        path = os.path.join(OUTPUT_DIR, f'{base_name}_2026_Q1.csv')
-        df.loc[mask_q1].to_csv(path, index=False, encoding='utf-8')
-        print(f'  ✓ {base_name}_2026_Q1.csv — {mask_q1.sum():,} строк')
-    
-    # Каждый день апреля 2026
-    april_days = pd.date_range('2026-04-01', '2026-04-15', freq='D')
-    for day in april_days:
-        day_str = day.strftime('%Y-%m-%d')
-        mask_day = (df[date_col].dt.date == day.date())
-        if mask_day.any():
-            path = os.path.join(OUTPUT_DIR, f'{base_name}_{day_str}.csv')
-            df.loc[mask_day].to_csv(path, index=False, encoding='utf-8')
-            print(f'  ✓ {base_name}_{day_str}.csv — {mask_day.sum():,} строк')
-        else:
-            # Пустой файл с заголовками (опционально)
-            path = os.path.join(OUTPUT_DIR, f'{base_name}_{day_str}.csv')
-            pd.DataFrame(columns=df.columns).to_csv(path, index=False, encoding='utf-8')
-            print(f'  ⚠ {base_name}_{day_str}.csv — пустой (нет данных)')
+    # Update: 15.04.2026
+    mask_update = df[date_col] == cutoff_date
+    if mask_update.any():
+        path = os.path.join(OUTPUT_DIR, f'{base_name}_update.csv')
+        df.loc[mask_update].to_csv(path, index=False, encoding='utf-8')
+        print(f'  ✓ {base_name}_update.csv — {mask_update.sum():,} строк')
+    else:
+        # Если нет данных за 15.04.2026, создаём пустой файл
+        path = os.path.join(OUTPUT_DIR, f'{base_name}_update.csv')
+        pd.DataFrame(columns=df.columns).to_csv(path, index=False, encoding='utf-8')
+        print(f'  ⚠ {base_name}_update.csv — пустой (нет данных за 2026-04-15)')
 
 # ═══════════════════════════════════════════════════════════════════
 # 9. Главная функция
