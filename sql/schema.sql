@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS dim_product (
 );
 
 -- -----------------------------------------------------------------------------
--- Планы (genre × format × year × month)
+-- Планы (genre x format x year x month)
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS fact_plan (
     plan_id             INTEGER     PRIMARY KEY,
@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS fact_plan (
 
 -- -----------------------------------------------------------------------------
 -- Продажи
+--
+-- ПРИМЕЧАНИЕ: REFERENCES dim_date(date) требует, чтобы dim_date содержала
+-- все даты, которые встречаются в fact_sales. При расширении периода
+-- генерации данных необходимо сначала дополнить dim_date новыми датами.
 -- -----------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS fact_sales (
     sales_id            INTEGER     PRIMARY KEY,

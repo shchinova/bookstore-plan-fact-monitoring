@@ -806,19 +806,19 @@ def split_and_save_fact(df: pd.DataFrame, base_name: str, date_col: str = 'date'
     mask_history = df[date_col] < cutoff_date
     if mask_history.any():
         path = os.path.join(OUTPUT_DIR, f'{base_name}_history.csv')
-        df.loc[mask_history].to_csv(path, index=False, encoding='utf-8')
+        df.loc[mask_history].to_csv(path, index=False, encoding='utf-8-sig')
         print(f'  ✓ {base_name}_history.csv — {mask_history.sum():,} строк')
     
     # Update: 15.04.2026
     mask_update = df[date_col] == cutoff_date
     if mask_update.any():
         path = os.path.join(OUTPUT_DIR, f'{base_name}_update.csv')
-        df.loc[mask_update].to_csv(path, index=False, encoding='utf-8')
+        df.loc[mask_update].to_csv(path, index=False, encoding='utf-8-sig')
         print(f'  ✓ {base_name}_update.csv — {mask_update.sum():,} строк')
     else:
         # Если нет данных за 15.04.2026, создаём пустой файл
         path = os.path.join(OUTPUT_DIR, f'{base_name}_update.csv')
-        pd.DataFrame(columns=df.columns).to_csv(path, index=False, encoding='utf-8')
+        pd.DataFrame(columns=df.columns).to_csv(path, index=False, encoding='utf-8-sig')
         print(f'  ⚠ {base_name}_update.csv — пустой (нет данных за 2026-04-15)')
 
 # ═══════════════════════════════════════════════════════════════════
@@ -827,7 +827,7 @@ def split_and_save_fact(df: pd.DataFrame, base_name: str, date_col: str = 'date'
 def main():
     def save(df: pd.DataFrame, name: str):
         path = os.path.join(OUTPUT_DIR, f'{name}.csv')
-        df.to_csv(path, index=False, encoding='utf-8')
+        df.to_csv(path, index=False, encoding='utf-8-sig')
         print(f'  ✓ {name}.csv — {len(df):,} строк → {path}')
 
     # ── 1. Генерация чистых данных ────────────────────────────────

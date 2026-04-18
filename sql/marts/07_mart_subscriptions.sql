@@ -7,6 +7,10 @@
 --   2. mart_subscriptions_summary — сводные метрики за весь период
 --
 -- Используется: Tableau (страница «Подписки»)
+--
+-- ПРИМЕЧАНИЕ: подписки намеренно исключены из mart_abc (05_mart_abc.sql),
+-- чтобы не искажать ABC-классификацию книжного ассортимента.
+-- Все метрики по подпискам сосредоточены в этой витрине.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -36,11 +40,12 @@ SELECT
     )                                       AS promo_pct,
 
     -- Средняя стоимость подписки
-    CASE WHEN SUM(s.sales_qty - s.return_qty) > 0
-         THEN ROUND(
-             SUM(s.sales_amount - s.return_amount)
-             / SUM(s.sales_qty - s.return_qty), 2)
-         ELSE 0
+    CASE
+        WHEN SUM(s.sales_qty - s.return_qty) > 0
+        THEN ROUND(
+            SUM(s.sales_amount - s.return_amount)
+            / SUM(s.sales_qty  - s.return_qty), 2)
+        ELSE 0
     END                                     AS avg_subscription_price
 
 FROM fact_sales s
@@ -106,15 +111,17 @@ SELECT
     total_cancellations,
 
     -- Процент отмен
-    CASE WHEN total_orders > 0
-         THEN ROUND(total_cancellations::NUMERIC / total_orders * 100, 1)
-         ELSE 0
+    CASE
+        WHEN total_orders > 0
+        THEN ROUND(total_cancellations::NUMERIC / total_orders * 100, 1)
+        ELSE 0
     END                                     AS cancellation_rate_pct,
 
     promo_count,
-    CASE WHEN total_orders > 0
-         THEN ROUND(promo_count::NUMERIC / total_orders * 100, 1)
-         ELSE 0
+    CASE
+        WHEN total_orders > 0
+        THEN ROUND(promo_count::NUMERIC / total_orders * 100, 1)
+        ELSE 0
     END                                     AS promo_rate_pct,
 
     first_sale_date,
@@ -126,9 +133,10 @@ SELECT
     ROUND((unit_price - unit_cost) / NULLIF(unit_price, 0), 4) AS margin,
 
     -- Приблизительный LTV: средняя выручка на подписку
-    CASE WHEN net_subscriptions > 0
-         THEN ROUND(total_revenue / net_subscriptions, 2)
-         ELSE 0
+    CASE
+        WHEN net_subscriptions > 0
+        THEN ROUND(total_revenue / net_subscriptions, 2)
+        ELSE 0
     END                                     AS avg_ltv
 
 FROM by_type

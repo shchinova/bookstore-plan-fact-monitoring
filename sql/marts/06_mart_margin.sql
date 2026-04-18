@@ -3,10 +3,16 @@
 -- Маржинальность по форматам и издателям для дашборда Tableau
 --
 -- Содержит два среза:
---   1. mart_margin_by_format    — маржа по формату × месяц
+--   1. mart_margin_by_format    — маржа по формату x месяц
 --   2. mart_margin_by_publisher — рейтинг издателей по суммарной марже
 --
 -- Используется: Tableau (страница «Ассортимент и маржинальность»)
+--
+-- ИЗМЕНЕНИЯ:
+--   [FIX-1] В mart_margin_by_publisher убрана избыточная проверка
+--           p.format NOT IN ('Subscription'): у подписок publisher = NULL,
+--           поэтому фильтр WHERE p.publisher IS NOT NULL уже исключает их
+--           полностью. Оставлена единственная, семантически точная проверка.
 -- =============================================================================
 
 -- -----------------------------------------------------------------------------
@@ -20,15 +26,13 @@ SELECT
     d.year,
     d.month,
     d.quarter,
-    DATE_TRUNC('month', s.date)::DATE   AS month_start,
+    DATE_TRUNC('month', s.date)::DATE               AS month_start,
     p.format,
-
-    SUM(s.sales_qty    - s.return_qty)                      AS net_qty,
-    SUM(s.sales_amount - s.return_amount)                   AS net_revenue,
-    SUM((s.sales_qty   - s.return_qty) * p.cost_rub)        AS total_cost,
+    SUM(s.sales_qty    - s.return_qty)              AS net_qty,
+    SUM(s.sales_amount - s.return_amount)           AS net_revenue,
+    SUM((s.sales_qty   - s.return_qty) * p.cost_rub) AS total_cost,
     SUM(s.sales_amount - s.return_amount
-        - (s.sales_qty - s.return_qty) * p.cost_rub)        AS gross_profit,
-
+        - (s.sales_qty - s.return_qty) * p.cost_rub) AS gross_profit,
     CASE
         WHEN SUM(s.sales_amount - s.return_amount) > 0
         THEN ROUND(
@@ -37,9 +41,8 @@ SELECT
             / SUM(s.sales_amount - s.return_amount), 4
         )
         ELSE 0
-    END                                                      AS gross_margin,
-
-    COUNT(DISTINCT p.product_id)                             AS unique_products
+    END                                             AS gross_margin,
+    COUNT(DISTINCT p.product_id)                    AS unique_products
 
 FROM fact_sales s
 JOIN dim_product p ON p.product_id = s.product_id
@@ -69,8 +72,9 @@ WITH publisher_stats AS (
         AVG(p.avg_rating)                                        AS avg_product_rating
     FROM fact_sales s
     JOIN dim_product p ON p.product_id = s.product_id
+    -- [FIX-1] Единственный нужный фильтр: publisher IS NOT NULL уже исключает
+    -- подписки (у них publisher = NULL по данным генератора)
     WHERE p.publisher IS NOT NULL
-      AND p.format NOT IN ('Subscription')
     GROUP BY p.publisher, p.format
 )
 
@@ -95,6 +99,7 @@ SELECT
     RANK() OVER (
         ORDER BY gross_profit DESC
     )                                           AS rank_overall
+
 FROM publisher_stats
 ORDER BY gross_profit DESC;
 

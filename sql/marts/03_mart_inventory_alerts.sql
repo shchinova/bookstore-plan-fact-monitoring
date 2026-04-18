@@ -4,12 +4,22 @@
 --
 -- Логика:
 --   - Берём остатки на последнюю дату в fact_inventory
---   - Флаг is_low_stock = 1 (closing_stock < 15)
---   - Добавляем средние продажи за последние 30 дней → рекомендованный заказ
+--   - Низкий остаток: closing_stock < 15 (константа LOW_STOCK_THRESHOLD)
+--   - Добавляем средние продажи за последние 30 дней -> рекомендованный заказ
 --
 -- Используется:
---   Excel → Power Query → daily_pulse.xlsx     (виджет low-stock)
---   Excel → Power Query → reorder_tracker.xlsx (лист «К заказу»)
+--   Excel -> Power Query -> daily_pulse.xlsx     (виджет low-stock)
+--   Excel -> Power Query -> reorder_tracker.xlsx (лист «К заказу»)
+--
+-- ИЗМЕНЕНИЯ:
+--   [FIX-1] Фильтр изменён с WHERE is_low_stock = 1 на WHERE closing_stock < 15.
+--           Флаг is_low_stock может быть инвертирован аномалией в исходных данных
+--           (аномалия №20 в generate_bookstore_data.py), поэтому полагаться на
+--           него как на основной фильтр ненадёжно. Прямое сравнение с порогом
+--           гарантирует, что ни один критический товар не пропадёт из витрины.
+--   [FIX-2] Добавлен явный фильтр p.format IN ('Paperback', 'Hardcover') в JOIN
+--           с dim_product: fact_inventory содержит только физические товары,
+--           фильтр защищает от изменений модели данных в будущем.
 -- =============================================================================
 
 DROP TABLE IF EXISTS mart_inventory_alerts;
@@ -43,7 +53,7 @@ avg_sales_30d AS (
         ) AS avg_daily_sales_30d
     FROM fact_sales s
     CROSS JOIN last_inv_date l
-    WHERE s.date > l.dt - INTERVAL '30 days'
+    WHERE s.date >  l.dt - INTERVAL '30 days'
       AND s.date <= l.dt
     GROUP BY s.product_id
 )
@@ -57,36 +67,35 @@ SELECT
     ls.closing_stock,
     ls.is_low_stock,
     ls.stock_date,
-
     -- Среднедневные продажи за 30 дней
-    COALESCE(a.avg_daily_sales_30d, 0) AS avg_daily_sales_30d,
-
+    COALESCE(a.avg_daily_sales_30d, 0)      AS avg_daily_sales_30d,
     -- Дней до нуля при текущем темпе продаж
     CASE
         WHEN COALESCE(a.avg_daily_sales_30d, 0) > 0
         THEN ROUND(ls.closing_stock / a.avg_daily_sales_30d)
         ELSE NULL
-    END AS days_until_stockout,
-
+    END                                     AS days_until_stockout,
     -- Рекомендуемый заказ: запас на 45 дней минус текущий остаток
-    -- Минимальный заказ 0 (не заказываем, если запас достаточен)
     GREATEST(
         0,
         CEIL(COALESCE(a.avg_daily_sales_30d, 0) * 45) - ls.closing_stock
-    )::INTEGER AS recommended_order_qty,
-
+    )::INTEGER                              AS recommended_order_qty,
     -- Уровень тревоги для цветовой индикации в Excel
     CASE
-        WHEN ls.closing_stock = 0                        THEN 'critical'   -- красный
-        WHEN ls.closing_stock < 5                        THEN 'urgent'     -- тёмно-красный
-        WHEN ls.closing_stock < 15                       THEN 'warning'    -- жёлтый
-        ELSE                                                  'ok'          -- зелёный
-    END AS alert_level
+        WHEN ls.closing_stock = 0   THEN 'critical'   -- красный
+        WHEN ls.closing_stock < 5   THEN 'urgent'     -- тёмно-красный
+        WHEN ls.closing_stock < 15  THEN 'warning'    -- жёлтый
+        ELSE                             'ok'          -- зелёный (не попадёт в витрину)
+    END                                     AS alert_level
 
 FROM latest_stock ls
-JOIN dim_product p ON p.product_id = ls.product_id
+-- [FIX-2] Явный фильтр на физические форматы
+JOIN dim_product p
+    ON  p.product_id = ls.product_id
+    AND p.format IN ('Paperback', 'Hardcover')
 LEFT JOIN avg_sales_30d a ON a.product_id = ls.product_id
-WHERE ls.is_low_stock = 1   -- только товары ниже порога
+-- [FIX-1] Фильтруем по фактическому значению остатка, а не по флагу
+WHERE ls.closing_stock < 15
 ORDER BY ls.closing_stock ASC, a.avg_daily_sales_30d DESC NULLS LAST;
 
 CREATE INDEX IF NOT EXISTS idx_mart_inv_alerts_level
