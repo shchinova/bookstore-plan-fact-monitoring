@@ -15,20 +15,20 @@
 
 -- Запускается через refresh_all_marts.py, порядок файлов:
 --
---   1. sql/marts/01_mart_daily_pulse.sql
---   2. sql/marts/02_mart_plan_fact.sql
---   3. sql/marts/03_mart_inventory_alerts.sql
---   4. sql/marts/04_mart_sales_trends.sql
---   5. sql/marts/05_mart_abc.sql
---   6. sql/marts/06_mart_margin.sql
---   7. sql/marts/07_mart_subscriptions.sql
+--   1. sql/marts/mart_daily_pulse.sql
+--   2. sql/marts/mart_plan_fact.sql
+--   3. sql/marts/mart_inventory_alerts.sql
+--   4. sql/marts/mart_sales_trends.sql
+--   5. sql/marts/mart_abc.sql
+--   6. sql/marts/mart_margin.sql
+--   7. sql/marts/mart_subscriptions.sql
 --
 -- Для ручного запуска через psql раскомментируйте строки ниже:
 --
--- \i sql/marts/01_mart_daily_pulse.sql
--- \i sql/marts/02_mart_plan_fact.sql
--- \i sql/marts/03_mart_inventory_alerts.sql
--- \i sql/marts/04_mart_sales_trends.sql
--- \i sql/marts/05_mart_abc.sql
--- \i sql/marts/06_mart_margin.sql
--- \i sql/marts/07_mart_subscriptions.sql
+-- \i sql/marts/mart_daily_pulse.sql
+-- \i sql/marts/mart_plan_fact.sql
+-- \i sql/marts/mart_inventory_alerts.sql
+-- \i sql/marts/mart_sales_trends.sql
+-- \i sql/marts/mart_abc.sql
+-- \i sql/marts/mart_margin.sql
+-- \i sql/marts/mart_subscriptions.sql

@@ -1,5 +1,5 @@
 -- =============================================================================
--- 03_mart_inventory_alerts.sql
+-- mart_inventory_alerts.sql
 -- Витрина товаров с низким остатком для daily_pulse.xlsx и reorder_tracker.xlsx
 --
 -- Логика:

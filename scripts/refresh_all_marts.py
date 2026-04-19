@@ -39,13 +39,13 @@ MARTS_DIR = ROOT / 'sql' / 'marts'
 # mart_daily_pulse и mart_plan_fact опираются на актуальные данные fact_sales,
 # поэтому оперативные витрины идут первыми.
 MART_FILES = [
-    '01_mart_daily_pulse.sql',
-    '02_mart_plan_fact.sql',
-    '03_mart_inventory_alerts.sql',
-    '04_mart_sales_trends.sql',
-    '05_mart_abc.sql',
-    '06_mart_margin.sql',
-    '07_mart_subscriptions.sql',
+    'mart_daily_pulse.sql',
+    'mart_plan_fact.sql',
+    'mart_inventory_alerts.sql',
+    'mart_sales_trends.sql',
+    'mart_abc.sql',
+    'mart_margin.sql',
+    'mart_subscriptions.sql',
 ]
 
 
