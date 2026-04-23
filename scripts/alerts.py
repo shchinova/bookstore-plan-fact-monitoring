@@ -5,7 +5,7 @@ scripts/alerts.py
 
 Порядок работы:
     1. Читает настройки из scripts/alerts_config.yml
-    2. Подключается к PostgreSQL и читает mart_inventory_alerts
+    2. Подключается к PostgreSQL и читает 03_mart_inventory_alerts
     3. Если товаров ниже порога нет — завершает работу без отправки
     4. Формирует HTML-письмо с таблицей товаров, сгруппированных по уровню тревоги
     5. Отправляет письмо каждому получателю из конфига, фильтруя по его roles
@@ -125,7 +125,7 @@ def get_engine():
 
 def fetch_alerts(engine, max_rows: int) -> pd.DataFrame:
     """
-    Читает mart_inventory_alerts.
+    Читает 03_mart_inventory_alerts.
     Возвращает не более max_rows строк, отсортированных по:
       1. Уровень тревоги (critical → urgent → warning)
       2. closing_stock ASC (самые критические — вверху внутри уровня)
@@ -144,12 +144,12 @@ def fetch_alerts(engine, max_rows: int) -> pd.DataFrame:
             recommended_order_qty,
             alert_level,
             stock_date
-        FROM mart_inventory_alerts
+        FROM 03_mart_inventory_alerts
         ORDER BY {level_order_sql}, closing_stock ASC
         LIMIT {max_rows}
     """
     df = pd.read_sql(query, con=engine)
-    log.info('mart_inventory_alerts: %d строк (лимит %d)', len(df), max_rows)
+    log.info('03_mart_inventory_alerts: %d строк (лимит %d)', len(df), max_rows)
     return df
 
 
@@ -311,7 +311,7 @@ def build_html(df: pd.DataFrame, report_date: date, recipient_name: str) -> str:
 
   <p style="margin-top:32px;font-size:12px;color:#999;border-top:1px solid #EEE;padding-top:12px;">
     Сформировано автоматически · scripts/alerts.py ·
-    Витрина: mart_inventory_alerts · {datetime.now().strftime('%Y-%m-%d %H:%M')}
+    Витрина: 03_mart_inventory_alerts · {datetime.now().strftime('%Y-%m-%d %H:%M')}
   </p>
 
 </body>

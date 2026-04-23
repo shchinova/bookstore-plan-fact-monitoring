@@ -1,30 +1,18 @@
 -- =============================================================================
--- mart_abc.sql
+-- 05_mart_abc.sql
 -- ABC-классификация ассортимента по вкладу в выручку
 --
--- Логика:
---   A — топ 80% выручки
---   B — следующие 15% (80-95%)
---   C — последние 5%  (95-100%)
---
--- Грануляция: один продукт = одна строка
--- Используется: Tableau (страница «Ассортимент»), notebooks/abc_analysis.ipynb
---
--- ИЗМЕНЕНИЯ:
---   [FIX-1] Подписки исключены из классификации: формат 'Subscription' имеет
---           высокую выручку и при включении в общую базу смещает ABC-границы,
---           ошибочно понижая класс книг. Метрики подписок вынесены в отдельную
---           витрину mart_subscriptions (07_mart_subscriptions.sql).
+-- Создаёт 1 таблицу: mart_abc
+-- Логика: A = топ 80% выручки, B = 80–95%, C = 95–100%
+-- Подписки исключены: их выручка смещает ABC-границы для книг.
+-- Используется: Tableau (страница «Ассортимент»), abc_analysis.ipynb
 -- =============================================================================
 
 DROP TABLE IF EXISTS mart_abc;
-
 CREATE TABLE mart_abc AS
 
 WITH
 
--- Суммарные продажи по каждому продукту за весь период
--- [FIX-1] Фильтр p.format != 'Subscription' исключает подписки
 product_totals AS (
     SELECT
         s.product_id,
@@ -39,12 +27,10 @@ product_totals AS (
     GROUP BY s.product_id
 ),
 
--- Общая выручка только по книгам (без подписок)
 grand_total AS (
     SELECT SUM(total_net_revenue) AS total FROM product_totals
 ),
 
--- Ранжирование и накопленная доля
 ranked AS (
     SELECT
         pt.product_id,
@@ -55,10 +41,6 @@ ranked AS (
         pt.total_lost_qty,
         gt.total                                            AS grand_total_revenue,
         ROUND(pt.total_net_revenue / gt.total * 100, 2)    AS revenue_pct,
-        SUM(pt.total_net_revenue) OVER (
-            ORDER BY pt.total_net_revenue DESC
-            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
-        )                                                   AS cumulative_revenue,
         SUM(pt.total_net_revenue) OVER (
             ORDER BY pt.total_net_revenue DESC
             ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
@@ -89,19 +71,17 @@ SELECT
     r.revenue_pct,
     r.cumulative_pct,
     r.revenue_rank,
-    -- ABC-категория
     CASE
         WHEN r.cumulative_pct <= 80 THEN 'A'
         WHEN r.cumulative_pct <= 95 THEN 'B'
         ELSE                             'C'
     END                                                     AS abc_class,
-    -- Маржинальность продукта
+    -- Маржа продукта за весь период
     CASE
         WHEN r.total_net_revenue > 0
         THEN ROUND(
             (r.total_net_revenue - r.total_net_qty * p.cost_rub)
-            / r.total_net_revenue, 4
-        )
+            / r.total_net_revenue, 4)
         ELSE 0
     END                                                     AS product_margin
 
@@ -109,8 +89,5 @@ FROM ranked r
 JOIN dim_product p ON p.product_id = r.product_id
 ORDER BY r.revenue_rank;
 
-CREATE INDEX IF NOT EXISTS idx_mart_abc_class
-    ON mart_abc(abc_class);
-
-CREATE INDEX IF NOT EXISTS idx_mart_abc_format
-    ON mart_abc(format);
+CREATE INDEX IF NOT EXISTS idx_mart_abc_class  ON mart_abc(abc_class);
+CREATE INDEX IF NOT EXISTS idx_mart_abc_format ON mart_abc(format);
