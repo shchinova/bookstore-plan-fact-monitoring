@@ -173,23 +173,10 @@ SELECT
     -- Возвраты (сигнал о проблеме с качеством или партией)
     SUM(ds.return_qty)                                      AS return_qty,
     SUM(ds.return_amount)                                   AS return_amount,
-    -- Доля возвратов в выручке (до вычета возвратов)
-    CASE
-        WHEN SUM(ds.net_revenue + ds.return_amount) > 0
-        THEN ROUND(
-            SUM(ds.return_amount)
-            / SUM(ds.net_revenue + ds.return_amount) * 100, 1)
-        ELSE 0
-    END                                                     AS return_rate_pct,
 
     -- Промо (насколько день «органический»)
     SUM(ds.promo_orders)                                    AS promo_orders,
     SUM(ds.promo_revenue)                                   AS promo_revenue,
-    CASE
-        WHEN SUM(ds.orders) > 0
-        THEN ROUND(SUM(ds.promo_orders)::NUMERIC / SUM(ds.orders) * 100, 1)
-        ELSE 0
-    END                                                     AS promo_orders_pct,
 
     -- Потерянные продажи из-за дефицита
     SUM(ds.lost_sales_qty)                                  AS lost_sales_qty
@@ -221,12 +208,8 @@ SELECT
         ELSE 0
     END                                                     AS gross_margin,
     dc.promo_orders,
-    dc.promo_revenue,
-    CASE
-        WHEN dc.orders > 0
-        THEN ROUND(dc.promo_orders::NUMERIC / dc.orders * 100, 1)
-        ELSE 0
-    END                                                     AS promo_orders_pct
+    dc.promo_revenue
+
 FROM _v_daily_channels dc
 CROSS JOIN _v_dates d;
 
@@ -258,24 +241,11 @@ SELECT
     -- Возвраты MTD
     m.mtd_return_qty,
     m.mtd_return_amount,
-    CASE
-        WHEN (m.mtd_revenue + m.mtd_return_amount) > 0
-        THEN ROUND(
-            m.mtd_return_amount
-            / (m.mtd_revenue + m.mtd_return_amount) * 100, 1)
-        ELSE 0
-    END                                 AS mtd_return_rate_pct,
     -- Промо MTD
     m.mtd_promo_orders,
     m.mtd_promo_revenue,
-    CASE
-        WHEN m.mtd_orders > 0
-        THEN ROUND(m.mtd_promo_orders::NUMERIC / m.mtd_orders * 100, 1)
-        ELSE 0
-    END                                 AS mtd_promo_orders_pct,
     -- Потерянные продажи MTD
     m.mtd_lost_sales_qty,
-
     -- MTD прошлого месяца (для сравнения)
     pm.prev_mtd_revenue,
     pm.prev_mtd_orders,
